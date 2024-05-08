@@ -130,7 +130,7 @@ $
 But if we compile it for Windows, we'll get this instead:
 
 ```bash
-$ env GOOS=windowd go build -o main -a -toolexec="go-ifdef $PWD" main.go
+$ env GOOS=windows go build -o main -a -toolexec="go-ifdef $PWD" main.go
 $ ./main
 {os:windows! items:[1 2 3 4 5]}
 $
