@@ -123,7 +123,7 @@ If we compile this code for a platform other than Windows, then upon execution, 
 ```bash
 $ env GOOS=linux go build -o main -a -toolexec="go-ifdef $PWD" main.go
 $ ./main
-{Not windows [1 2 3]}
+{os:Not windows items:[1 2 3]}
 $
 ```
 
