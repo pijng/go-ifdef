@@ -35,7 +35,7 @@ package main
 import "fmt"
 
 func main() {
-	i := 3
+	var i int
 
 	// #ifdef GOOS:darwin
 	i = 100
@@ -64,7 +64,7 @@ package main
 import "fmt"
 
 func main() {
-	i := 3
+	var i int
 
 	// #ifdef GOOS:linux
 	i = 100
@@ -80,7 +80,7 @@ and then compile it to the same MacOS, then we'll get different result:
 
 
 ```bash
-$ env GOOS=darwin go build -a -toolexec="go-ifdef $PWN" main.go
+$ env GOOS=darwin go build -a -toolexec="go-ifdef $PWD" main.go
 $ ./main
 727
 $
