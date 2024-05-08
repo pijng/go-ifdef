@@ -87,3 +87,51 @@ $ ./main
 727
 $
 ```
+
+
+Or another example with conditional struct populating:
+
+```go
+package main
+
+import "fmt"
+
+func main() {
+	fmt.Printf("%+v\n", someResult())
+}
+
+type result struct {
+	os    string
+	items []int
+}
+
+func someResult() result {
+	res := result{os: "Not windows"}
+	res.items = append(res.items, []int{1, 2, 3}...)
+
+	// #ifdef GOOS:windows
+	res.os = "windows!"
+	res.items = append(res.items, []int{4, 5}...)
+	// #endif
+
+	return res
+}
+```
+
+If we compile this code for a platform other than Windows, then upon execution, we will get the following:
+
+```bash
+$ env GOOS=linux go build -o main -a -toolexec="go-ifdef $PWD" main.go
+$ ./main
+{Not windows [1 2 3]}
+$
+```
+
+But if we compile it for Windows, we'll get this instead:
+
+```bash
+$ env GOOS=windowd go build -o main -a -toolexec="go-ifdef $PWD" main.go
+$ ./main
+{os:windows! items:[1 2 3 4 5]}
+$
+```

@@ -75,16 +75,16 @@ func (ifm IfdefModifier) Modify(f *dst.File) *dst.File {
 
 			startIdx := ifdef.stmtIdx
 			endIdx := endifStmts[idx] + 1
-			if !elseFound {
-				modifiedBodyList = append(fDecl.Body.List[:startIdx], fDecl.Body.List[endIdx:]...)
-			} else {
+
+			if elseFound {
 				if ifdef.goos == ifm.GOOS {
 					modifiedBodyList = append(fDecl.Body.List[:elseStmt.stmtIdx], fDecl.Body.List[endIdx:]...)
 				} else {
 					modifiedBodyList = append(fDecl.Body.List[:startIdx], fDecl.Body.List[startIdx+1:elseStmt.stmtIdx+1]...)
 					modifiedBodyList = append(modifiedBodyList, fDecl.Body.List[endIdx:]...)
 				}
-
+			} else {
+				modifiedBodyList = append(fDecl.Body.List[:startIdx], fDecl.Body.List[endIdx:]...)
 			}
 
 			fDecl.Body.List = modifiedBodyList
