@@ -1,6 +1,8 @@
 # go-ifdef
 Add trivial `#ifdef` and `#else` directives based on `GOOS` to your go code.
 
+You can use any valid `GOOS` value.
+
 ### Usage
 
 1. Install `go-ifdef` with:
@@ -24,8 +26,6 @@ go build -o output -a -toolexec="go-ifdef <absolute/path/to/project>" main.go
 ```bash
 ./output
 ```
-
-You can use any valid `GOOS` value.
 
 ### Demonstration
 
