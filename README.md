@@ -25,6 +25,8 @@ go build -o output -a -toolexec="go-ifdef <absolute/path/to/project>" main.go
 ./output
 ```
 
+You can use any valid `GOOS` value.
+
 ### Demonstration
 
 Suppose we have this code:
