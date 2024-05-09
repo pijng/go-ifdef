@@ -1,6 +1,7 @@
 # go-ifdef
-Add trivial `#ifdef` and `#else` directives based on `GOOS` to your go code.
+Add trivial `#ifdef`, `#else` and `#define` macros to your go code.
 
+`go-ifdef` has built-in support for GOOS in form of `#ifdef GOOS:<target>`
 You can use any valid `GOOS` value.
 
 ### Usage
@@ -137,7 +138,12 @@ $
 ```
 ___
 
-Custom `#define` directives also available (**bool only support**):
+### Custom directives
+
+You can define custom directives with `#define` keyword.
+⚠️ **Only boolean values are supported**
+
+For example:
 
 ```go
 package main
