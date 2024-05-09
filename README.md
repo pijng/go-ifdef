@@ -135,3 +135,72 @@ $ ./main
 {os:windows! items:[1 2 3 4 5]}
 $
 ```
+___
+
+Custom `#define` directives also available (**bool only support**):
+
+```go
+package main
+
+import "fmt"
+
+// #define DEBUG bool = true
+
+func main() {
+	fmt.Printf("%d\n", someResult())
+}
+
+func someResult() int {
+	// #ifdef DEBUG
+	fmt.Println("Im debugging")
+	// #else
+	fmt.Println("NOT DEBUGGING")
+	// #endif
+
+	return 0
+}
+```
+
+If we compile it and run:
+
+```bash
+$ go build -o main -a -toolexec="go-ifdef $PWD" main.go
+$ ./main
+DEBUGGING
+0
+$
+```
+
+But if we change `#define DEBUG` to false:
+
+```go
+package main
+
+import "fmt"
+
+// #define DEBUG bool = false
+
+func main() {
+	fmt.Printf("%d\n", someResult())
+}
+
+func someResult() int {
+	// #ifdef DEBUG
+	fmt.Println("Im debugging")
+	// #else
+	fmt.Println("NOT DEBUGGING")
+	// #endif
+
+	return 0
+}
+```
+
+Then the result will be different:
+
+```bash
+$ go build -o main -a -toolexec="go-ifdef $PWD" main.go
+$ ./main
+NOT DEBUGGING
+0
+$
+```
