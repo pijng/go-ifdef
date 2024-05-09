@@ -282,7 +282,7 @@ func hasCustomDirective(comments []string, dirName string) bool {
 
 func extractCustomDirectives(comments []string) map[string]directive {
 	directives := make(map[string]directive)
-	pattern := `(\w+)\s+(\w+)\s*=\s*(\w+)`
+	pattern := `^(\w+)\s+(true|false)$`
 	re := regexp.MustCompile(pattern)
 
 	for _, commentLine := range comments {
@@ -296,19 +296,15 @@ func extractCustomDirectives(comments []string) map[string]directive {
 		}
 
 		splittedDir := re.FindStringSubmatch(customDirective)
-		name, typ, val := splittedDir[1], splittedDir[2], splittedDir[3]
+		name, val := splittedDir[1], splittedDir[2]
 		dir := directive{name: name}
 
-		switch typ {
-		case "bool":
-			boolVal, err := strconv.ParseBool(val)
-			if err != nil {
-				panic(fmt.Sprintf("invalid bool value '%s': %s", val, err))
-			}
-			dir.evaluated = boolVal
-		default:
-			panic(fmt.Sprintf("unsupported type: %s", typ))
+		boolVal, err := strconv.ParseBool(val)
+		if err != nil {
+			panic(fmt.Sprintf("invalid bool value '%s': %s", val, err))
 		}
+
+		dir.evaluated = boolVal
 
 		directives[name] = dir
 	}

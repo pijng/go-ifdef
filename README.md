@@ -144,7 +144,7 @@ package main
 
 import "fmt"
 
-// #define DEBUG bool = true
+// #define DEBUG true
 
 func main() {
 	fmt.Printf("%d\n", someResult())
@@ -178,7 +178,7 @@ package main
 
 import "fmt"
 
-// #define DEBUG bool = false
+// #define DEBUG false
 
 func main() {
 	fmt.Printf("%d\n", someResult())
