@@ -152,7 +152,7 @@ func main() {
 
 func someResult() int {
 	// #ifdef DEBUG
-	fmt.Println("Im debugging")
+	fmt.Println("DEBUGGING")
 	// #else
 	fmt.Println("NOT DEBUGGING")
 	// #endif
@@ -186,7 +186,7 @@ func main() {
 
 func someResult() int {
 	// #ifdef DEBUG
-	fmt.Println("Im debugging")
+	fmt.Println("DEBUGGING")
 	// #else
 	fmt.Println("NOT DEBUGGING")
 	// #endif
