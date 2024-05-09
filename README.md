@@ -4,6 +4,8 @@ Add trivial `#ifdef`, `#else` and `#define` macros to your go code.
 `go-ifdef` has built-in support for GOOS in form of `#ifdef GOOS:<target>`
 You can use any valid `GOOS` value.
 
+Nested `#ifdef`s are **not** supported.
+
 ### Usage
 
 1. Install `go-ifdef` with:
