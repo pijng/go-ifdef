@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
 	"os"
 	"regexp"
@@ -9,13 +11,15 @@ import (
 	"strings"
 
 	"github.com/dave/dst"
+	"github.com/dave/dst/decorator"
 	"github.com/pijng/moonject"
 )
 
-const IFDEF_GOOS = "#ifdef GOOS:"
+const GOOS = "GOOS:"
+const IFDEF = "#ifdef"
 const ENDIF = "#endif"
 const ELSE = "#else"
-const CUSTOM_DIRECTIVE_PREFIX = "#define "
+const DEFINE = "#define "
 
 func main() {
 	goos := os.Getenv("GOOS")
@@ -24,292 +28,160 @@ func main() {
 	moonject.Process(ifdefModifier)
 }
 
-type directive struct {
-	name      string
-	evaluated bool
-}
-
 type IfdefModifier struct {
 	GOOS string
 }
 
 type ifdefStmt struct {
-	goos    string
-	stmtIdx int
+	evaluated bool
+	line      int
 }
 
 type stmt struct {
 	ifdefIdx int
-	stmtIdx  int
+	line     int
 }
 
-func (ifm IfdefModifier) Modify(f *dst.File) *dst.File {
-	f = processGoosDirectives(f, ifm.GOOS)
-	// res := decorator.NewRestorerWithImports("root", guess.New())
-	// res.Print(f)
-	f = processCustomDirectives(f)
-	// res = decorator.NewRestorerWithImports("root", guess.New())
-	// res.Print(f)
+func (ifm IfdefModifier) Modify(f *dst.File, dec *decorator.Decorator, res *decorator.Restorer) *dst.File {
+	var buf bytes.Buffer
+	err := res.Fprint(&buf, f)
+	if err != nil {
+		panic(err)
+	}
 
-	return f
-}
+	scanner := bufio.NewScanner(bytes.NewBuffer(buf.Bytes()))
+	scanner.Split(bufio.ScanLines)
 
-func processGoosDirectives(f *dst.File, goos string) *dst.File {
-	for _, decl := range f.Decls {
-		fDecl, isFunc := decl.(*dst.FuncDecl)
-		if !isFunc {
-			continue
+	lineIdx := 0
+	customDirectives := make(map[string]bool)
+	ifdefStmts := make([]ifdefStmt, 0)
+	elseStmts := make([]stmt, 0)
+	endifStmts := make([]stmt, 0)
+
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		name, evaluated, directiveFound := customDirective(line)
+		if directiveFound {
+			customDirectives[name] = evaluated
 		}
 
-		ifdefStmts := make([]ifdefStmt, 0)
-		elseStmts := make([]stmt, 0)
-		endifStmts := make([]stmt, 0)
+		ifdef, ifdefFound := extractDirectiveByPattern(line, IFDEF)
+		if ifdefFound {
+			var evaluated bool
 
-		for stmtIdx, fStmt := range fDecl.Body.List {
-			ifdefGOOS, found := extractIfdefGOOS(fStmt.Decorations().Start.All())
-			if !found {
-				continue
-			}
-
-			ifdefStmts = append(ifdefStmts, ifdefStmt{goos: ifdefGOOS, stmtIdx: stmtIdx})
-		}
-
-		idx := 0
-		for stmtIdx, fStmt := range fDecl.Body.List {
-			if idx >= len(ifdefStmts) {
-				continue
-			}
-
-			ifdef := ifdefStmts[idx]
-			found := false
-			if hasElse(fStmt.Decorations().Start.All()) {
-				elseStmts = append(elseStmts, stmt{ifdefIdx: ifdef.stmtIdx, stmtIdx: stmtIdx})
-				found = true
-			}
-
-			if hasEndif(fStmt.Decorations().End.All()) {
-				endifStmts = append(endifStmts, stmt{ifdefIdx: ifdef.stmtIdx, stmtIdx: stmtIdx})
-				found = true
-			}
-
-			if found {
-				idx++
-			}
-		}
-
-		for idx := len(ifdefStmts) - 1; idx >= 0; idx-- {
-			ifdef := ifdefStmts[idx]
-			elseStmt, elseFound := correspondingStmt(elseStmts, ifdef.stmtIdx)
-			endifStmt, endifFound := correspondingStmt(endifStmts, ifdef.stmtIdx)
-			if !endifFound {
-				panic(fmt.Sprintf("#endif not found for %+v", ifdef))
-			}
-
-			fDecl.Body.List[ifdef.stmtIdx].Decorations().Start.Clear()
-			fDecl.Body.List[ifdef.stmtIdx].Decorations().End.Clear()
-			fDecl.Body.List[endifStmt.stmtIdx].Decorations().Start.Clear()
-			fDecl.Body.List[endifStmt.stmtIdx].Decorations().End.Clear()
-
-			if ifdef.goos == goos && !elseFound {
-				continue
-			}
-
-			var modifiedBodyList []dst.Stmt
-
-			startIdx := ifdef.stmtIdx
-			// endIdx := endifStmts[idx] + 1
-
-			if elseFound {
-				if ifdef.goos == goos {
-					modifiedBodyList = append(fDecl.Body.List[:elseStmt.stmtIdx], fDecl.Body.List[endifStmt.stmtIdx+1:]...)
-				} else {
-					modifiedBodyList = append(fDecl.Body.List[:startIdx], fDecl.Body.List[elseStmt.stmtIdx:]...)
-					// modifiedBodyList = append(modifiedBodyList, fDecl.Body.List[endifStmt.stmtIdx:]...)
-				}
+			_, ifdefGOOS, isGOOS := strings.Cut(ifdef, GOOS)
+			if isGOOS {
+				evaluated = ifm.GOOS == ifdefGOOS
 			} else {
-				modifiedBodyList = append(fDecl.Body.List[:startIdx], fDecl.Body.List[endifStmt.stmtIdx+1:]...)
+				evaluated = customDirectives[ifdef]
 			}
 
-			fDecl.Body.List = modifiedBodyList
+			ifdefStmts = append(ifdefStmts, ifdefStmt{evaluated: evaluated, line: lineIdx})
 		}
+
+		els, elseFound := extractDirectiveByPattern(line, ELSE)
+		if elseFound {
+			ifdefIdx, ok := latestNonClosedIfdef(ifdefStmts, endifStmts)
+			if !ok {
+				panic(fmt.Sprintf("#ifdef not found for %+v", els))
+			}
+			elseStmts = append(elseStmts, stmt{ifdefIdx: ifdefIdx, line: lineIdx})
+		}
+
+		endif, endifFound := extractDirectiveByPattern(line, ENDIF)
+		if endifFound {
+			ifdefIdx, ok := latestNonClosedIfdef(ifdefStmts, endifStmts)
+			if !ok {
+				panic(fmt.Sprintf("#ifdef not found for %+v", endif))
+			}
+			endifStmts = append(endifStmts, stmt{ifdefIdx: ifdefIdx, line: lineIdx})
+		}
+
+		lineIdx++
+	}
+
+	contentLines := strings.Split(buf.String(), "\n")
+
+	linesWere := len(contentLines)
+	linesRemoved := 0
+	for ifdefIdx, ifdef := range ifdefStmts {
+		if ifdef.line-linesRemoved <= 0 {
+			break
+		}
+
+		elseStmt, elseFound := correspondingStmt(elseStmts, ifdefIdx)
+		endifStmt, endifFound := correspondingStmt(endifStmts, ifdefIdx)
+		if !endifFound {
+			panic(fmt.Sprintf("#endif not found for %+v", ifdef))
+		}
+
+		start := ifdef.line - linesRemoved
+		end := endifStmt.line - linesRemoved + 1
+
+		if ifdef.evaluated {
+			if elseFound {
+				contentLines = slices.Concat(contentLines[:start], contentLines[start+1:elseStmt.line-linesRemoved], contentLines[end:])
+			} else {
+				contentLines = slices.Concat(contentLines[:start], contentLines[start+1:endifStmt.line-linesRemoved], contentLines[end:])
+			}
+		}
+
+		if !ifdef.evaluated {
+			if elseFound {
+				contentLines = slices.Concat(contentLines[:start], contentLines[elseStmt.line+1-linesRemoved:endifStmt.line-linesRemoved], contentLines[end:])
+			} else {
+				contentLines = slices.Concat(contentLines[:start], contentLines[end:])
+			}
+		}
+
+		linesRemoved = linesWere - len(contentLines)
+	}
+
+	code := strings.Join(contentLines, "\n")
+	f, err = dec.Parse(code)
+	if err != nil {
+		panic(err)
 	}
 
 	return f
 }
 
-func extractIfdefGOOS(comments []string) (string, bool) {
-	var ifdefGOOS string
-	var found bool
+func latestNonClosedIfdef(ifdefStmts []ifdefStmt, endifStmts []stmt) (int, bool) {
+	for n := len(ifdefStmts) - 1; n >= 0; n-- {
 
-	for _, commentLine := range comments {
-		ifdefGOOS, found = extractDirectiveByPattern(commentLine, IFDEF_GOOS)
-	}
-
-	return ifdefGOOS, found
-}
-
-func hasEndif(comments []string) bool {
-	var found bool
-
-	for _, commentLine := range comments {
-		_, ok := extractDirectiveByPattern(commentLine, ENDIF)
-		found = ok
-	}
-
-	return found
-}
-
-func hasElse(comments []string) bool {
-	var found bool
-
-	for _, commentLine := range comments {
-		_, ok := extractDirectiveByPattern(commentLine, ELSE)
-		found = ok
-	}
-
-	return found
-}
-
-func processCustomDirectives(f *dst.File) *dst.File {
-	allComments := make([]string, 0)
-
-	for _, decl := range f.Decls {
-		fDecl, isFunc := decl.(*dst.FuncDecl)
-		if !isFunc {
+		_, hasEndif := correspondingStmt(endifStmts, n)
+		if hasEndif {
 			continue
 		}
 
-		allComments = append(allComments, fDecl.Decorations().Start.All()...)
+		return n, true
 	}
 
-	customDirectives := extractCustomDirectives(allComments)
-
-	for _, decl := range f.Decls {
-		fDecl, isFunc := decl.(*dst.FuncDecl)
-		if !isFunc {
-			continue
-		}
-
-		for name, directive := range customDirectives {
-			ifdefStmts := make([]ifdefStmt, 0)
-			elseStmts := make([]stmt, 0)
-			endifStmts := make([]stmt, 0)
-
-			for stmtIdx, fStmt := range fDecl.Body.List {
-				found := hasCustomDirective(fStmt.Decorations().Start.All(), name)
-				if !found {
-					continue
-				}
-
-				ifdefStmts = append(ifdefStmts, ifdefStmt{stmtIdx: stmtIdx})
-			}
-
-			idx := 0
-			for stmtIdx, fStmt := range fDecl.Body.List {
-				if idx >= len(ifdefStmts) {
-					continue
-				}
-
-				ifdef := ifdefStmts[idx]
-				found := false
-				if hasElse(fStmt.Decorations().Start.All()) {
-					elseStmts = append(elseStmts, stmt{ifdefIdx: ifdef.stmtIdx, stmtIdx: stmtIdx})
-					found = true
-				}
-
-				if hasEndif(fStmt.Decorations().End.All()) {
-					endifStmts = append(endifStmts, stmt{ifdefIdx: ifdef.stmtIdx, stmtIdx: stmtIdx})
-					found = true
-				}
-
-				if found {
-					idx++
-				}
-			}
-
-			for idx := len(ifdefStmts) - 1; idx >= 0; idx-- {
-				ifdef := ifdefStmts[idx]
-				elseStmt, elseFound := correspondingStmt(elseStmts, ifdef.stmtIdx)
-				endifStmt, endifFound := correspondingStmt(endifStmts, ifdef.stmtIdx)
-				if !endifFound {
-					panic(fmt.Sprintf("#endif not found for %+v", ifdef))
-				}
-
-				fDecl.Body.List[ifdef.stmtIdx].Decorations().Start.Clear()
-				fDecl.Body.List[ifdef.stmtIdx].Decorations().End.Clear()
-				fDecl.Body.List[endifStmt.stmtIdx].Decorations().Start.Clear()
-				fDecl.Body.List[endifStmt.stmtIdx].Decorations().End.Clear()
-
-				if directive.evaluated && !elseFound {
-					continue
-				}
-
-				var modifiedBodyList []dst.Stmt
-
-				startIdx := ifdef.stmtIdx
-
-				if elseFound {
-					if directive.evaluated {
-						modifiedBodyList = append(fDecl.Body.List[:elseStmt.stmtIdx], fDecl.Body.List[endifStmt.stmtIdx+1:]...)
-					} else {
-						modifiedBodyList = append(fDecl.Body.List[:startIdx], fDecl.Body.List[elseStmt.stmtIdx:]...)
-						// modifiedBodyList = append(modifiedBodyList, fDecl.Body.List[endifStmt.stmtIdx:]...)
-					}
-				} else {
-					modifiedBodyList = append(fDecl.Body.List[:startIdx], fDecl.Body.List[endifStmt.stmtIdx+1:]...)
-				}
-
-				fDecl.Body.List = modifiedBodyList
-			}
-
-		}
-
-	}
-
-	return f
+	return 0, false
 }
 
-func hasCustomDirective(comments []string, dirName string) bool {
-	for _, commentLine := range comments {
-		_, found := extractDirectiveByPattern(commentLine, fmt.Sprintf("#ifdef %s", dirName))
-		if found {
-			return true
-		}
+func customDirective(line string) (string, bool, bool) {
+	customDirective, ok := extractDirectiveByPattern(line, DEFINE)
+	if !ok {
+		return "", false, false
 	}
 
-	return false
-}
+	re := regexp.MustCompile(`^(\w+)\s+(true|false)$`)
 
-func extractCustomDirectives(comments []string) map[string]directive {
-	directives := make(map[string]directive)
-	pattern := `^(\w+)\s+(true|false)$`
-	re := regexp.MustCompile(pattern)
-
-	for _, commentLine := range comments {
-		customDirective, ok := extractDirectiveByPattern(commentLine, CUSTOM_DIRECTIVE_PREFIX)
-		if !ok {
-			continue
-		}
-
-		if !re.MatchString(customDirective) {
-			continue
-		}
-
-		splittedDir := re.FindStringSubmatch(customDirective)
-		name, val := splittedDir[1], splittedDir[2]
-		dir := directive{name: name}
-
-		boolVal, err := strconv.ParseBool(val)
-		if err != nil {
-			panic(fmt.Sprintf("invalid bool value '%s': %s", val, err))
-		}
-
-		dir.evaluated = boolVal
-
-		directives[name] = dir
+	if !re.MatchString(customDirective) {
+		return "", false, false
 	}
 
-	return directives
+	splittedDir := re.FindStringSubmatch(customDirective)
+	name, val := splittedDir[1], splittedDir[2]
+
+	boolVal, err := strconv.ParseBool(val)
+	if err != nil {
+		panic(fmt.Sprintf("invalid bool value '%s': %s", val, err))
+	}
+
+	return name, boolVal, true
 }
 
 func extractDirectiveByPattern(commentLine string, pattern string) (string, bool) {
@@ -322,8 +194,9 @@ func extractDirectiveByPattern(commentLine string, pattern string) (string, bool
 	if !ok {
 		return "", false
 	}
+	rawDirective = strings.TrimSpace(rawDirective)
 
-	return strings.TrimSpace(rawDirective), true
+	return rawDirective, true
 }
 
 func correspondingStmt(stmts []stmt, ifdefStmtIdx int) (stmt, bool) {
