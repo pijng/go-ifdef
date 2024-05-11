@@ -105,9 +105,10 @@ func (ifm IfdefModifier) Modify(f *dst.File, dec *decorator.Decorator, res *deco
 
 	linesWere := len(contentLines)
 	linesRemoved := 0
+	latestIfdefLine := 0
 	for ifdefIdx, ifdef := range ifdefStmts {
-		if ifdef.line-linesRemoved <= 0 {
-			break
+		if ifdef.line < latestIfdefLine {
+			continue
 		}
 
 		elseStmt, elseFound := correspondingStmt(elseStmts, ifdefIdx)
@@ -135,6 +136,7 @@ func (ifm IfdefModifier) Modify(f *dst.File, dec *decorator.Decorator, res *deco
 			}
 		}
 
+		latestIfdefLine = end
 		linesRemoved = linesWere - len(contentLines)
 	}
 
