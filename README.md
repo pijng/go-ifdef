@@ -16,7 +16,7 @@ go install github.com/pijng/go-ifdef@latest
 2. Build your project with `go build` while specifying go-ifdef preprocessor:
 
 ```bash
-go build -o output -a -toolexec="go-ifdef <absolute/path/to/project>" main.go
+go build -a -toolexec="go-ifdef <absolute/path/to/project>" main.go
 ```
 
 **Important:**
@@ -26,7 +26,7 @@ go build -o output -a -toolexec="go-ifdef <absolute/path/to/project>" main.go
 3. Run the final binary:
 
 ```bash
-./output
+./main
 ```
 
 ### Demonstration
@@ -123,7 +123,7 @@ func someResult() result {
 If we compile this code for a platform other than Windows, then upon execution, we will get the following:
 
 ```bash
-$ env GOOS=linux go build -o main -a -toolexec="go-ifdef $PWD" main.go
+$ env GOOS=linux go build -a -toolexec="go-ifdef $PWD" main.go
 $ ./main
 {os:Not windows items:[1 2 3]}
 $
@@ -132,7 +132,7 @@ $
 But if we compile it for Windows, we'll get this instead:
 
 ```bash
-$ env GOOS=windows go build -o main -a -toolexec="go-ifdef $PWD" main.go
+$ env GOOS=windows go build -a -toolexec="go-ifdef $PWD" main.go
 $ ./main
 {os:windows! items:[1 2 3 4 5]}
 $
@@ -171,7 +171,7 @@ func someResult() int {
 If we compile it and run:
 
 ```bash
-$ go build -o main -a -toolexec="go-ifdef $PWD" main.go
+$ go build -a -toolexec="go-ifdef $PWD" main.go
 $ ./main
 DEBUGGING
 0
@@ -205,7 +205,7 @@ func someResult() int {
 Then the result will be different:
 
 ```bash
-$ go build -o main -a -toolexec="go-ifdef $PWD" main.go
+$ go build -a -toolexec="go-ifdef $PWD" main.go
 $ ./main
 NOT DEBUGGING
 0
@@ -239,7 +239,7 @@ func someResult() int {
 If we pass `DEBUG=true` with `env` and compile this code:
 
 ```
-$ env DEBUG=true go build -o main -a -toolexec="go-ifdef $PWD" main.go
+$ env DEBUG=true go build -a -toolexec="go-ifdef $PWD" main.go
 $ ./main
 DEBUGGING
 0
