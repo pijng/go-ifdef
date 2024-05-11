@@ -2,6 +2,7 @@
 Add trivial `#ifdef`, `#else` and `#define` macros to your go code.
 
 `go-ifdef` has built-in support for GOOS in form of `#ifdef GOOS:<target>`
+
 You can use any valid `GOOS` value.
 
 ### Usage
@@ -207,6 +208,40 @@ Then the result will be different:
 $ go build -o main -a -toolexec="go-ifdef $PWD" main.go
 $ ./main
 NOT DEBUGGING
+0
+$
+```
+
+Or you can pass a directive value with `env` when invoking go build command:
+
+```go
+package main
+
+import "fmt"
+
+// #define DEBUG
+
+func main() {
+	fmt.Printf("%d\n", someResult())
+}
+
+func someResult() int {
+	// #ifdef DEBUG
+	fmt.Println("DEBUGGING")
+	// #else
+	fmt.Println("NOT DEBUGGING")
+	// #endif
+
+	return 0
+}
+```
+
+If we pass `DEBUG=true` with `env` and compile this code:
+
+```
+$ env DEBUG=true go build -o main -a -toolexec="go-ifdef $PWD" main.go
+$ ./main
+DEBUGGING
 0
 $
 ```
