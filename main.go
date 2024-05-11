@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"fmt"
 	"os"
-	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -169,18 +168,19 @@ func customDirective(line string) (string, bool, bool) {
 		return "", false, false
 	}
 
-	re := regexp.MustCompile(`^(\w+)\s+(true|false)$`)
+	parts := strings.Split(customDirective, " ")
+	name := parts[0]
 
-	if !re.MatchString(customDirective) {
-		return "", false, false
+	var strVal string
+	if len(parts) == 1 {
+		strVal = os.Getenv(name)
+	} else {
+		strVal = parts[1]
 	}
 
-	splittedDir := re.FindStringSubmatch(customDirective)
-	name, val := splittedDir[1], splittedDir[2]
-
-	boolVal, err := strconv.ParseBool(val)
+	boolVal, err := strconv.ParseBool(strVal)
 	if err != nil {
-		panic(fmt.Sprintf("invalid bool value '%s': %s", val, err))
+		boolVal = false
 	}
 
 	return name, boolVal, true
