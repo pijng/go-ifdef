@@ -11,7 +11,7 @@ import (
 
 	"github.com/dave/dst"
 	"github.com/dave/dst/decorator"
-	"github.com/pijng/moonject"
+	"github.com/pijng/goinject"
 )
 
 const GOOS = "GOOS:"
@@ -24,7 +24,7 @@ func main() {
 	goos := os.Getenv("GOOS")
 	ifdefModifier := IfdefModifier{GOOS: goos}
 
-	moonject.Process(ifdefModifier)
+	goinject.Process(ifdefModifier)
 }
 
 type IfdefModifier struct {
