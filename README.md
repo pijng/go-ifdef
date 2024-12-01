@@ -16,12 +16,11 @@ go install github.com/pijng/go-ifdef@latest
 2. Build your project with `go build` while specifying go-ifdef preprocessor:
 
 ```bash
-go build -a -toolexec="go-ifdef <absolute/path/to/project>" main.go
+go build -a -toolexec="go-ifdef" main.go
 ```
 
 **Important:**
   * `-a` flag is required to recompile all your project, otherwise go compiler might do nothing and use cached build
-  * `<absolute/path/to/project>` is and absolute path to the root of your project. If you run `go build` from the root – simply specify `$PWD` as an argument.
 
 3. Run the final binary:
 
@@ -54,7 +53,7 @@ func main() {
 If we compile it for MacOS and apply `go-ifdef` as a preprocessor, then we'll get the following result:
 
 ```bash
-$ env GOOS=darwin go build -a -toolexec="go-ifdef $PWD" main.go
+$ env GOOS=darwin go build -a -toolexec="go-ifdef" main.go
 $ ./main
 100
 $
@@ -84,7 +83,7 @@ and then compile it to the same MacOS, then we'll get different result:
 
 
 ```bash
-$ env GOOS=darwin go build -a -toolexec="go-ifdef $PWD" main.go
+$ env GOOS=darwin go build -a -toolexec="go-ifdef" main.go
 $ ./main
 727
 $
@@ -123,7 +122,7 @@ func someResult() result {
 If we compile this code for a platform other than Windows, then upon execution, we will get the following:
 
 ```bash
-$ env GOOS=linux go build -a -toolexec="go-ifdef $PWD" main.go
+$ env GOOS=linux go build -a -toolexec="go-ifdef" main.go
 $ ./main
 {os:Not windows items:[1 2 3]}
 $
@@ -132,7 +131,7 @@ $
 But if we compile it for Windows, we'll get this instead:
 
 ```bash
-$ env GOOS=windows go build -a -toolexec="go-ifdef $PWD" main.go
+$ env GOOS=windows go build -a -toolexec="go-ifdef" main.go
 $ ./main
 {os:windows! items:[1 2 3 4 5]}
 $
@@ -171,7 +170,7 @@ func someResult() int {
 If we compile it and run:
 
 ```bash
-$ go build -a -toolexec="go-ifdef $PWD" main.go
+$ go build -a -toolexec="go-ifdef" main.go
 $ ./main
 DEBUGGING
 0
@@ -205,7 +204,7 @@ func someResult() int {
 Then the result will be different:
 
 ```bash
-$ go build -a -toolexec="go-ifdef $PWD" main.go
+$ go build -a -toolexec="go-ifdef" main.go
 $ ./main
 NOT DEBUGGING
 0
@@ -239,7 +238,7 @@ func someResult() int {
 If we pass `DEBUG=true` with `env` and compile this code:
 
 ```
-$ env DEBUG=true go build -a -toolexec="go-ifdef $PWD" main.go
+$ env DEBUG=true go build -a -toolexec="go-ifdef" main.go
 $ ./main
 DEBUGGING
 0
